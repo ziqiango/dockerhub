@@ -1,0 +1,55 @@
+#!/bin/bash
+IMAGE_NAME=zhuzq/hyperf:v2
+NETWORK=swoole
+
+app_path=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+project_name="${app_path##*\/}"
+
+#echo $app_path
+if [ ! $1 ]; then
+    command='start'
+else
+    command=$1
+fi
+
+if [ "$command" == "start" ]; then
+# 判断是否存在swoole网络
+    if (($(docker network ls | grep ${NETWORK} | wc -l) < 1)); then
+        docker network create -d bridge ${NETWORK}
+    fi
+
+# 启动 mysql
+    if (($(docker ps | grep mysql | wc -l) > 0)); then
+        echo 'mysql is aleady runing!'
+    elif (($(docker ps -a | grep mysql | wc -l) > 0)); then
+        docker start mysql
+    else
+         docker run -d -e MYSQL_ROOT_PASSWORD=123456 -v ~/Work/phpcode/runtime/mysql:/var/lib/mysql -p 13306:3306 --network=${NETWORK} --name=mysql mysql:5.7.28
+    fi
+
+# redis
+    if (($(docker ps | grep redis | wc -l) > 0)); then
+        echo 'redis is aleady runing!'
+    elif (($(docker ps -a | grep redis | wc -l) > 0)); then
+        docker start redis
+    else
+         docker run -d -v ~/Work/phpcode/runtime/redis:/data -p 16379:6379 --network=${NETWORK} --name=redis redis:4-alpine
+    fi
+
+#php
+    if (($(docker ps | grep ${project_name} | wc -l) > 0)); then
+        echo "${project_name} is aleady runing!";
+    elif (($(docker ps -a | grep ${project_name} | wc -l) > 0)); then
+        docker start -i ${project_name}
+    else
+# 启动docker
+        #docker run -d -v ${app_path}:/opt/www -p 9501:9501 --network=${NETWORK} --name=${project_name}  ${IMAGE_NAME}
+        docker run -it -v ${app_path}:/opt/www -p 9501:9501 --network=${NETWORK} --name=${project_name}  ${IMAGE_NAME} bash
+    fi
+elif [ "$command" == "bash" -o "$command" == "shell" ]; then
+    docker exec -it $project_name bash
+elif [ "$command" == "stop" -o "$command" == "restart" ]; then
+    docker $command $project_name
+else
+    echo "not find $command !";
+fi
