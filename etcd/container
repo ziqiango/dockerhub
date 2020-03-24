@@ -1,0 +1,39 @@
+#!/bin/bash
+IMAGE_NAME=zhuzq/etcd:latest
+project_name=etcd
+
+#echo $app_path
+if [ ! $1 ]; then
+    command='start'
+else
+    command=$1
+fi
+
+if [ "$command" == "start" ]; then
+
+#php
+    if (($(docker ps | grep ${project_name} | wc -l) > 0)); then
+        echo "${project_name} is aleady runing!";
+    elif (($(docker ps -a | grep ${project_name} | wc -l) > 0)); then
+        docker start -i ${project_name}
+    else
+# 启动docker
+docker run -d -p 4001:4001 -p 2380:2380 -p 2379:2379 \
+`#-v /usr/share/ca-certificates/:/etc/ssl/certs \ ` \
+--name ${project_name} ${IMAGE_NAME} /usr/local/bin/etcd \
+-name etcd0 \
+-advertise-client-urls http://192.168.3.3:2379,http://192.168.3.3:4001 \
+-listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+-initial-advertise-peer-urls http://192.168.3.3:2380 \
+-listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster-1 \
+-initial-cluster etcd0=http://192.168.3.3:2380 \
+-initial-cluster-state new
+    fi
+elif [ "$command" == "bash" -o "$command" == "shell" ]; then
+    docker exec -it $project_name sh
+elif [ "$command" == "stop" -o "$command" == "restart" ]; then
+    docker $command $project_name
+else
+    echo "not find $command !";
+fi
