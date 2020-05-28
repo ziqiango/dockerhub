@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+IMAGE_NAME=zhuzq/ngx-fpm:v1
+NGX_PORT=9188
+
+app_path=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+project_name="${app_path##*\/}"
+
+if [ ! $1 ]; then
+    command='start'
+else
+    command=$1
+fi
+
+if [ "$command" == "start" ]; then
+
+    if (($(docker ps | grep ${project_name} | wc -l) > 0)); then
+        echo "${project_name} is aleady runing!";
+    elif (($(docker ps -a | grep ${project_name} | wc -l) > 0)); then
+        docker start -i ${project_name}
+    else
+    # 启动docker
+        docker run -d -v ${app_path}:/var/www -p ${NGX_PORT}:80 --name=${project_name}  ${IMAGE_NAME}
+    fi
+
+elif [ "$command" == "bash" -o "$command" == "shell" ]; then
+    docker exec -it $project_name bash
+elif [ "$command" == "stop" -o "$command" == "restart" ]; then
+    docker $command $project_name
+elif [ "$command" == "rm" ]; then
+    if (($(docker ps | grep ${project_name} | wc -l) > 0)); then
+        docker stop $project_name
+    fi
+    if (($(docker ps -a | grep ${project_name} | wc -l) > 0)); then
+        docker rm $project_name
+    fi
+else
+    echo "not find $command !";
+fi
